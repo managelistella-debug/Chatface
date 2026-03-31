@@ -1,4 +1,6 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, after } from 'next/server';
+
+export const maxDuration = 60;
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { uploadFile } from '@/lib/supabase/storage';
 import { successResponse, errorResponse } from '@/lib/utils/errors';
@@ -45,7 +47,9 @@ export async function POST(request: NextRequest) {
     if (error) return errorResponse(error.message);
 
     // Process in background (don't await)
-    processDataSource(dataSourceId).catch(console.error);
+    after(async () => {
+      await processDataSource(dataSourceId);
+    });
 
     return successResponse(data, 201);
   } catch (err) {

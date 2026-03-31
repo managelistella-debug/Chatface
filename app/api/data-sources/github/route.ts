@@ -1,4 +1,6 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, after } from 'next/server';
+
+export const maxDuration = 60;
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { successResponse, errorResponse } from '@/lib/utils/errors';
 import { processDataSource } from '@/lib/rag/pipeline';
@@ -168,7 +170,9 @@ export async function POST(request: NextRequest) {
     await supabaseAdmin.from('document_chunks').insert(chunkRows);
 
     // Process in background (embed chunks)
-    processDataSource(dataSourceId).catch(console.error);
+    after(async () => {
+      await processDataSource(dataSourceId);
+    });
 
     return successResponse(
       { ...data, file_count: contentParts.length, truncated: treeData.truncated },

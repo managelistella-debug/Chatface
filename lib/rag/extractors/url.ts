@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 
-const MAX_PAGES = 50;
-const FETCH_TIMEOUT_MS = 10_000;
+const MAX_PAGES = 15;
+const FETCH_TIMEOUT_MS = 7_000;
 
 async function fetchPage(url: string): Promise<{ text: string; links: string[] }> {
   const controller = new AbortController();
@@ -44,14 +44,12 @@ async function fetchPage(url: string): Promise<{ text: string; links: string[] }
 
       try {
         const resolved = new URL(href, url);
-        // Only follow same-domain links, skip anchors and non-HTML resources
         if (
           resolved.hostname === baseUrl.hostname &&
           !resolved.hash &&
           !href.match(/\.(pdf|jpg|jpeg|png|gif|svg|webp|css|js|xml|json|zip|ico)$/i) &&
           resolved.pathname !== baseUrl.pathname
         ) {
-          // Normalise: strip query strings and trailing slashes for dedup
           resolved.search = '';
           const normalised = resolved.toString().replace(/\/$/, '');
           links.push(normalised);
@@ -62,6 +60,11 @@ async function fetchPage(url: string): Promise<{ text: string; links: string[] }
     });
 
     return { text, links };
+  } catch (err) {
+    // Gracefully skip pages that time out or fail — don't crash the whole crawl
+    const isAbort = (err as Error).name === 'AbortError' || (err as Error).name === 'TimeoutError';
+    if (!isAbort) console.warn(`[url-extractor] skipping ${url}:`, (err as Error).message);
+    return { text: '', links: [] };
   } finally {
     clearTimeout(timer);
   }
@@ -83,12 +86,10 @@ async function crawlSite(startUrl: string): Promise<string> {
 
     const { text, links } = await fetchPage(url);
     if (text.length > 50) {
-      // Label the page source so chunks retain context
       const path = new URL(url).pathname.replace(/^\//, '') || 'home';
       allText.push(`[Page: ${path}]\n${text}`);
     }
 
-    // Enqueue unvisited links
     for (const link of links) {
       if (!visited.has(link) && !queue.includes(link)) {
         queue.push(link);
@@ -111,14 +112,12 @@ export async function extractUrl(url: string): Promise<string> {
     parsed.pathname.split('/').filter(Boolean).length >= 2;
 
   if (isSinglePage) {
-    // Specific deep page — just fetch that page
     const { text } = await fetchPage(url);
     if (!text) throw new Error(`Failed to fetch content from ${url}`);
     return text;
   }
 
-  // Root or section URL — crawl the full site
   const result = await crawlSite(url);
-  if (!result.trim()) throw new Error(`No content found at ${url}`);
+  if (!result.trim()) throw new Error(`No content found at ${url}. The site may block crawlers or require JavaScript.`);
   return result;
 }

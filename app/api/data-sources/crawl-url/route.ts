@@ -1,8 +1,11 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, after } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { successResponse, errorResponse } from '@/lib/utils/errors';
 import { processDataSource } from '@/lib/rag/pipeline';
 import { v4 as uuidv4 } from 'uuid';
+
+// Give Vercel up to 60s to finish crawling + embedding in the background
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +17,6 @@ export async function POST(request: NextRequest) {
 
     const dataSourceId = uuidv4();
 
-    // Extract domain for name
     const urlObj = new URL(url);
     const name = `${urlObj.hostname}${urlObj.pathname}`;
 
@@ -33,8 +35,10 @@ export async function POST(request: NextRequest) {
 
     if (error) return errorResponse(error.message);
 
-    // Process in background
-    processDataSource(dataSourceId).catch(console.error);
+    // after() keeps the Vercel function alive after the response is sent
+    after(async () => {
+      await processDataSource(dataSourceId);
+    });
 
     return successResponse(data, 201);
   } catch (err) {
