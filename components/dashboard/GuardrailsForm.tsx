@@ -39,7 +39,7 @@ export function GuardrailsForm({ agentId, initial }: GuardrailsFormProps) {
   const [fallbackMessage, setFallbackMessage] = useState(
     initial?.fallback_message ?? DEFAULT_FALLBACK
   );
-  const [restrictTopics, setRestrictTopics] = useState(initial?.restrict_topics ?? false);
+  const [restrictTopics, setRestrictTopics] = useState(initial?.restrict_topics ?? true);
   const [offTopicMessage, setOffTopicMessage] = useState(
     initial?.off_topic_message ?? DEFAULT_OFF_TOPIC
   );
