@@ -292,11 +292,20 @@ export async function POST(request: NextRequest) {
             .update({ updated_at: new Date().toISOString() })
             .eq('id', convId);
 
-          // Record message analytics (fire and forget)
+          // Capture token usage from the LLM response
+          const usage = await result.usage;
+
+          // Record message analytics with token data (fire and forget)
           supabaseAdmin.from('analytics_events').insert({
             agent_id,
             event_type: 'message_sent',
-            event_data: { conversation_id: convId },
+            event_data: {
+              conversation_id: convId,
+              model: agent.model ?? 'gpt-4o',
+              prompt_tokens: usage?.promptTokens ?? 0,
+              completion_tokens: usage?.completionTokens ?? 0,
+              total_tokens: usage?.totalTokens ?? 0,
+            },
           }).then(() => {});
 
           controller.enqueue(
