@@ -5,7 +5,7 @@ import { toast } from '@/components/ui/Toast';
 
 interface ChannelIntegration {
   id: string;
-  channel: 'messenger' | 'instagram' | 'email';
+  channel: 'messenger' | 'instagram' | 'whatsapp' | 'email';
   page_id: string;
   page_name: string;
   instagram_username?: string;
