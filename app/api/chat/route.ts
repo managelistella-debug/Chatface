@@ -302,9 +302,9 @@ export async function POST(request: NextRequest) {
             event_data: {
               conversation_id: convId,
               model: agent.model ?? 'gpt-4o',
-              prompt_tokens: usage?.promptTokens ?? 0,
-              completion_tokens: usage?.completionTokens ?? 0,
-              total_tokens: usage?.totalTokens ?? 0,
+              prompt_tokens: usage?.inputTokens ?? 0,
+              completion_tokens: usage?.outputTokens ?? 0,
+              total_tokens: (usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0),
             },
           }).then(() => {});
 
