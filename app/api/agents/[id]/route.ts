@@ -34,7 +34,7 @@ export async function PUT(
 
   // If a column doesn't exist (migration 003 not yet run), retry with base-schema columns only
   if (result.error?.message?.includes('column')) {
-    const { name, system_prompt, model, temperature, widget_config, guardrails } = body as Record<string, unknown>;
+    const { name, system_prompt, model, temperature, widget_config, guardrails, lead_capture } = body as Record<string, unknown>;
     const safeBody: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (name !== undefined) safeBody.name = name;
     if (system_prompt !== undefined) safeBody.system_prompt = system_prompt;
@@ -42,6 +42,7 @@ export async function PUT(
     if (temperature !== undefined) safeBody.temperature = temperature;
     if (widget_config !== undefined) safeBody.widget_config = widget_config;
     if (guardrails !== undefined) safeBody.guardrails = guardrails;
+    if (lead_capture !== undefined) safeBody.lead_capture = lead_capture;
 
     result = await supabaseAdmin
       .from('agents')

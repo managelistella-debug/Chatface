@@ -2,23 +2,34 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useChat } from '@/hooks/useChat';
-import { WidgetConfig } from '@/lib/types/database';
+import { WidgetConfig, LeadCaptureConfig } from '@/lib/types/database';
 import ReactMarkdown from 'react-markdown';
 
 interface ChatPlaygroundProps {
   agentId: string;
   /** Pre-loaded config — if omitted the component fetches it */
   widgetConfig?: WidgetConfig;
+  /** Pre-loaded lead capture config */
+  leadCaptureConfig?: LeadCaptureConfig | null;
   /** Display name shown in the header */
   displayName?: string;
 }
 
-export function ChatPlayground({ agentId, widgetConfig: configProp, displayName: nameProp }: ChatPlaygroundProps) {
-  const { messages, isStreaming, sendMessage, reset } = useChat(agentId);
+export function ChatPlayground({ agentId, widgetConfig: configProp, leadCaptureConfig: leadConfigProp, displayName: nameProp }: ChatPlaygroundProps) {
+  const { messages, isStreaming, sendMessage, reset, conversationId } = useChat(agentId);
   const [input, setInput] = useState('');
   const [widgetConfig, setWidgetConfig] = useState<WidgetConfig | null>(configProp ?? null);
+  const [leadCaptureConfig, setLeadCaptureConfig] = useState<LeadCaptureConfig | null>(leadConfigProp ?? null);
   const [displayName, setDisplayName] = useState(nameProp ?? '');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Lead capture state
+  const [leadCaptured, setLeadCaptured] = useState(false);
+  const [leadSkipped, setLeadSkipped] = useState(false);
+  const [leadSubmitting, setLeadSubmitting] = useState(false);
+  const [leadName, setLeadName] = useState('');
+  const [leadEmail, setLeadEmail] = useState('');
+  const [leadPhone, setLeadPhone] = useState('');
 
   // Fetch agent config unless it was passed in
   useEffect(() => {
@@ -29,6 +40,7 @@ export function ChatPlayground({ agentId, widgetConfig: configProp, displayName:
         if (j.data) {
           setWidgetConfig(j.data.widget_config || {});
           setDisplayName(j.data.widget_config?.display_name || j.data.name || 'AI Assistant');
+          setLeadCaptureConfig(j.data.lead_capture ?? null);
         }
       })
       .catch(() => {});
@@ -38,16 +50,73 @@ export function ChatPlayground({ agentId, widgetConfig: configProp, displayName:
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isStreaming]);
 
+  // Lead capture visibility logic
+  const userMsgCount = messages.filter((m) => m.role === 'user').length;
+  const lc = leadCaptureConfig;
+  const showLeadForm =
+    lc?.enabled === true &&
+    !leadCaptured &&
+    !leadSkipped &&
+    (lc.timing === 'start' ||
+      (lc.timing === 'after_messages' && userMsgCount >= (lc.after_messages_count ?? 3)));
+
+  // Block input when lead form is showing and bypass not allowed
+  const inputBlocked = showLeadForm && lc?.allow_bypass === false;
+
+  // Validate required lead fields before submit
+  function isLeadFormValid() {
+    if (!lc) return true;
+    if (lc.fields.name && !leadName.trim()) return false;
+    if (lc.fields.email && !leadEmail.trim()) return false;
+    if (lc.fields.phone && !leadPhone.trim()) return false;
+    return true;
+  }
+
+  async function handleLeadSubmit() {
+    setLeadSubmitting(true);
+    try {
+      await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agent_id: agentId,
+          conversation_id: conversationId ?? null,
+          name: leadName.trim() || undefined,
+          email: leadEmail.trim() || undefined,
+          phone: leadPhone.trim() || undefined,
+        }),
+      });
+    } catch {
+      // silent — don't block the user even if save fails
+    } finally {
+      setLeadSubmitting(false);
+      setLeadCaptured(true);
+    }
+  }
+
+  function handleLeadSkip() {
+    setLeadSkipped(true);
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim() || isStreaming) return;
+    if (!input.trim() || isStreaming || inputBlocked) return;
     sendMessage(input.trim());
     setInput('');
   }
 
   function handleSuggestion(text: string) {
-    if (isStreaming) return;
+    if (isStreaming || inputBlocked) return;
     sendMessage(text);
+  }
+
+  function handleReset() {
+    reset();
+    setLeadCaptured(false);
+    setLeadSkipped(false);
+    setLeadName('');
+    setLeadEmail('');
+    setLeadPhone('');
   }
 
   // Parse initial messages (newline-separated string)
@@ -85,7 +154,7 @@ export function ChatPlayground({ agentId, widgetConfig: configProp, displayName:
           ) : (
             <div
               className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold"
-              style={{ background: widgetConfig?.use_primary_for_header !== false ? 'rgba(255,255,255,0.2)' : primaryColor, color: widgetConfig?.use_primary_for_header !== false ? '#fff' : '#fff' }}
+              style={{ background: widgetConfig?.use_primary_for_header !== false ? 'rgba(255,255,255,0.2)' : primaryColor, color: '#fff' }}
             >
               {(displayName || 'A').charAt(0).toUpperCase()}
             </div>
@@ -98,7 +167,7 @@ export function ChatPlayground({ agentId, widgetConfig: configProp, displayName:
           </span>
         </div>
         <button
-          onClick={reset}
+          onClick={handleReset}
           className="text-xs transition-colors opacity-70 hover:opacity-100"
           style={{ color: widgetConfig?.use_primary_for_header !== false ? '#fff' : 'var(--color-muted)' }}
           title="Reset conversation"
@@ -122,8 +191,8 @@ export function ChatPlayground({ agentId, widgetConfig: configProp, displayName:
           </div>
         )}
 
-        {/* Empty state (no greeting configured) */}
-        {initialMessages.length === 0 && messages.length === 0 && (
+        {/* Empty state (no greeting configured, no lead form) */}
+        {initialMessages.length === 0 && messages.length === 0 && !showLeadForm && (
           <div className="flex flex-col items-center justify-center h-full text-center pt-8">
             <div className="w-10 h-10 rounded-full bg-surface-hover flex items-center justify-center mb-3">
               <svg className="w-5 h-5 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -189,11 +258,76 @@ export function ChatPlayground({ agentId, widgetConfig: configProp, displayName:
           </div>
         )}
 
+        {/* Lead capture form — appears inline in the message stream */}
+        {showLeadForm && lc && (
+          <div className="flex justify-start">
+            <div className="w-full max-w-[90%] rounded-2xl rounded-bl-sm border border-border bg-white shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-border" style={{ background: `${primaryColor}10` }}>
+                <p className="text-sm font-semibold text-primary">
+                  {lc.timing === 'start' ? 'Before we get started…' : 'Before we continue…'}
+                </p>
+                <p className="text-xs text-muted mt-0.5">
+                  {lc.allow_bypass
+                    ? 'Share your contact details so we can follow up if needed (optional).'
+                    : 'Please provide your contact details to continue the conversation.'}
+                </p>
+              </div>
+              <div className="px-4 py-3 space-y-2.5">
+                {lc.fields.name && (
+                  <input
+                    type="text"
+                    placeholder="Full name"
+                    value={leadName}
+                    onChange={(e) => setLeadName(e.target.value)}
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-white text-primary placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30"
+                  />
+                )}
+                {lc.fields.email && (
+                  <input
+                    type="email"
+                    placeholder="Email address"
+                    value={leadEmail}
+                    onChange={(e) => setLeadEmail(e.target.value)}
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-white text-primary placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30"
+                  />
+                )}
+                {lc.fields.phone && (
+                  <input
+                    type="tel"
+                    placeholder="Phone number"
+                    value={leadPhone}
+                    onChange={(e) => setLeadPhone(e.target.value)}
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-white text-primary placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30"
+                  />
+                )}
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    onClick={handleLeadSubmit}
+                    disabled={!isLeadFormValid() || leadSubmitting}
+                    className="flex-1 py-2 rounded-lg text-sm font-medium text-white transition-opacity disabled:opacity-40"
+                    style={{ background: primaryColor }}
+                  >
+                    {leadSubmitting ? 'Saving…' : 'Continue'}
+                  </button>
+                  {lc.allow_bypass && (
+                    <button
+                      onClick={handleLeadSkip}
+                      className="px-3 py-2 rounded-lg text-sm text-muted hover:text-primary transition-colors"
+                    >
+                      Skip
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
 
       {/* Suggested message chips */}
-      {showSuggestions && (
+      {showSuggestions && !showLeadForm && (
         <div className="px-4 pb-2 flex flex-wrap gap-2">
           {suggestions.map((s, i) => (
             <button
@@ -214,13 +348,17 @@ export function ChatPlayground({ agentId, widgetConfig: configProp, displayName:
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={widgetConfig?.message_placeholder || 'Message…'}
-          className="flex-1 px-3.5 py-2 border border-border rounded-lg text-sm bg-white text-primary placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30"
-          disabled={isStreaming}
+          placeholder={
+            inputBlocked
+              ? 'Please provide your details above to continue…'
+              : widgetConfig?.message_placeholder || 'Message…'
+          }
+          className="flex-1 px-3.5 py-2 border border-border rounded-lg text-sm bg-white text-primary placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 disabled:bg-surface-hover disabled:cursor-not-allowed"
+          disabled={isStreaming || inputBlocked}
         />
         <button
           type="submit"
-          disabled={!input.trim() || isStreaming}
+          disabled={!input.trim() || isStreaming || inputBlocked}
           className="w-9 h-9 flex items-center justify-center rounded-lg text-white disabled:opacity-40 transition-colors"
           style={{ background: primaryColor }}
         >

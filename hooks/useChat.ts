@@ -110,5 +110,5 @@ export function useChat(agentId: string) {
     setIsStreaming(false);
   }, []);
 
-  return { messages, isStreaming, sendMessage, reset };
+  return { messages, isStreaming, sendMessage, reset, conversationId };
 }

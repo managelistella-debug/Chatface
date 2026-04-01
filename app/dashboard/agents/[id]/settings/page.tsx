@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Agent } from '@/lib/types/database';
 import { AgentForm } from '@/components/dashboard/AgentForm';
+import { LeadCaptureForm } from '@/components/dashboard/LeadCaptureForm';
 import { GuardrailsForm } from '@/components/dashboard/GuardrailsForm';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -46,6 +47,18 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
       </div>
       <div className="px-8 py-6 space-y-8">
         <AgentForm agent={agent} />
+
+        {/* Lead Capture */}
+        <div className="border border-border rounded-xl p-6 space-y-1 max-w-2xl">
+          <div className="mb-4">
+            <h3 className="text-sm font-semibold text-primary">Lead Capture</h3>
+            <p className="text-xs text-muted mt-1">
+              Automatically prompt visitors for their contact details during the conversation.
+              Collected leads appear in the Leads tab.
+            </p>
+          </div>
+          <LeadCaptureForm agentId={agent.id} initial={agent.lead_capture ?? null} />
+        </div>
 
         {/* Guardrails */}
         <div className="border border-border rounded-xl p-6 space-y-1 max-w-2xl">

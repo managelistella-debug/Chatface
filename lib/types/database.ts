@@ -30,6 +30,7 @@ export interface Agent {
   temperature: number;
   widget_config: WidgetConfig;
   guardrails?: AgentGuardrails;
+  lead_capture?: LeadCaptureConfig;
   profile_picture_url?: string;
   chat_icon_url?: string;
   last_trained_at?: string;
@@ -82,6 +83,25 @@ export interface WidgetConfig {
   // Embed tab
   allowed_domains?: string[];
   embed_type?: 'widget' | 'iframe';
+}
+
+// ============================================================================
+// Lead Capture
+// ============================================================================
+
+export interface LeadCaptureConfig {
+  enabled: boolean;
+  /** 'start' = show before first message | 'after_messages' = show after N user messages */
+  timing: 'start' | 'after_messages';
+  /** How many user messages before showing the form (only used when timing = 'after_messages') */
+  after_messages_count: number;
+  /** true = visitor can skip the form | false = must fill in to continue */
+  allow_bypass: boolean;
+  fields: {
+    name: boolean;
+    email: boolean;
+    phone: boolean;
+  };
 }
 
 // ============================================================================
