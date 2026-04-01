@@ -31,20 +31,26 @@ export function ChatPlayground({ agentId, widgetConfig: configProp, leadCaptureC
   const [leadEmail, setLeadEmail] = useState('');
   const [leadPhone, setLeadPhone] = useState('');
 
-  // Fetch agent config unless it was passed in
+  // Fetch agent config for anything not passed in as a prop
   useEffect(() => {
-    if (configProp) return;
+    const needsWidget = !configProp;
+    const needsLeadCapture = leadConfigProp === undefined;
+    if (!needsWidget && !needsLeadCapture) return;
     fetch(`/api/agents/${agentId}`)
       .then((r) => r.json())
       .then((j) => {
         if (j.data) {
-          setWidgetConfig(j.data.widget_config || {});
-          setDisplayName(j.data.widget_config?.display_name || j.data.name || 'AI Assistant');
-          setLeadCaptureConfig(j.data.lead_capture ?? null);
+          if (needsWidget) {
+            setWidgetConfig(j.data.widget_config || {});
+            setDisplayName(j.data.widget_config?.display_name || j.data.name || 'AI Assistant');
+          }
+          if (needsLeadCapture) {
+            setLeadCaptureConfig(j.data.lead_capture ?? null);
+          }
         }
       })
       .catch(() => {});
-  }, [agentId, configProp]);
+  }, [agentId, configProp, leadConfigProp]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

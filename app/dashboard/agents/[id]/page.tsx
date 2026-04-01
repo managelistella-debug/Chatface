@@ -56,7 +56,7 @@ export default function AgentPlaygroundPage({ params }: { params: Promise<{ id: 
         </div>
       )}
       <div className="flex-1 overflow-hidden">
-        <ChatPlayground agentId={id} widgetConfig={agent.widget_config} displayName={agent.widget_config?.display_name || agent.name} />
+        <ChatPlayground agentId={id} widgetConfig={agent.widget_config} leadCaptureConfig={agent.lead_capture ?? null} displayName={agent.widget_config?.display_name || agent.name} />
       </div>
     </div>
   );
