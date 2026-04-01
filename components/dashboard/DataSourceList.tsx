@@ -9,6 +9,7 @@ import { toast } from '@/components/ui/Toast';
 const STATUS_VARIANT: Record<string, 'default' | 'success' | 'warning' | 'error'> = {
   pending: 'default',
   processing: 'warning',
+  embedding: 'warning',
   completed: 'success',
   failed: 'error',
 };
@@ -111,9 +112,18 @@ export function DataSourceList({ agentId, onSourcesLoaded, onSourceDeleted }: Da
                 <p className="text-sm font-medium text-primary truncate">{source.name}</p>
                 <p className="text-xs text-muted mt-0.5">
                   {source.type.toUpperCase()}
-                  {source.status === 'completed' && ` · ${source.total_chunks} chunks · ${source.total_tokens.toLocaleString()} tokens`}
-                  {source.status === 'processing' && ' · Indexing…'}
-                  {source.status === 'pending' && ' · Waiting to index…'}
+                  {source.status === 'completed' && (
+                    ` · ${source.total_chunks} chunks · ${source.total_tokens.toLocaleString()} tokens`
+                    + (source.pages_crawled ? ` · ${source.pages_crawled} pages` : '')
+                  )}
+                  {source.status === 'processing' && (() => {
+                    const done = source.pages_crawled ?? 0;
+                    const remaining = (source.crawl_queue ?? []).length;
+                    const total = done + remaining;
+                    return total > 0 ? ` · Crawling… ${done}/${total} pages` : ' · Crawling…';
+                  })()}
+                  {source.status === 'embedding' && ' · Embedding content…'}
+                  {source.status === 'pending' && ' · Starting crawl…'}
                 </p>
                 {source.error_message && (
                   <p className="text-xs text-red-600 mt-0.5">{source.error_message}</p>

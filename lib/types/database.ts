@@ -93,7 +93,12 @@ export interface DataSource {
   agent_id: string;
   type: 'text' | 'url' | 'pdf' | 'docx' | 'txt';
   name: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'embedding' | 'completed' | 'failed';
+  crawl_queue?: string[];
+  crawled_urls?: string[];
+  crawl_chars?: number;
+  char_limit?: number;
+  pages_crawled?: number;
   file_path?: string;
   url?: string;
   total_chunks: number;
