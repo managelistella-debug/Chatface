@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createMiddlewareClient } from '@/lib/supabase/server-auth';
 
-const PUBLIC_PATHS = ['/login', '/signup', '/api/auth', '/api/chat', '/api/widget', '/api/setup', '/chat', '/help'];
+const PUBLIC_PATHS = ['/login', '/signup', '/api/auth', '/api/chat', '/api/widget', '/api/setup', '/chat', '/help', '/api/integrations/meta/webhook', '/api/integrations/facebook/callback'];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p + '?'));

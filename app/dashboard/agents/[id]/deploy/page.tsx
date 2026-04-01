@@ -4,12 +4,20 @@ import { useEffect, useState, use } from 'react';
 import { Agent } from '@/lib/types/database';
 import { WidgetConfig } from '@/components/widget/WidgetConfig';
 import { HelpPageConfig } from '@/components/dashboard/HelpPageConfig';
+import { ChannelIntegrations } from '@/components/dashboard/ChannelIntegrations';
 
 export default function DeployPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [agent, setAgent] = useState<Agent | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'Widget' | 'Help Page'>('Widget');
+  const [activeTab, setActiveTab] = useState<'Widget' | 'Channels' | 'Help Page'>(() => {
+    // Default to Channels tab if redirected from OAuth
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('tab') === 'Channels') return 'Channels';
+    }
+    return 'Widget';
+  });
 
   useEffect(() => {
     fetch(`/api/agents/${id}`)
@@ -25,7 +33,7 @@ export default function DeployPage({ params }: { params: Promise<{ id: string }>
     <div className="flex flex-col h-full">
       {/* Header with tabs */}
       <div className="flex items-center gap-6 px-8 border-b border-border shrink-0">
-        {(['Widget', 'Help Page'] as const).map((tab) => (
+        {(['Widget', 'Channels', 'Help Page'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -41,6 +49,7 @@ export default function DeployPage({ params }: { params: Promise<{ id: string }>
       </div>
       <div className="flex-1 px-8 py-6 overflow-y-auto">
         {activeTab === 'Widget' && <WidgetConfig agent={agent} />}
+        {activeTab === 'Channels' && <ChannelIntegrations agentId={id} />}
         {activeTab === 'Help Page' && <HelpPageConfig agentId={id} agentName={agent.name} />}
       </div>
     </div>
